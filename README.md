@@ -159,7 +159,7 @@ quarkus.kubernetes.env-vars.developer-greeting-message.configmap=developers-api-
 
 2. Create Kubernetes ConfigMap using the properties file
 ```
-$ kubectl create configmap my-extra-config --from-file=src/main/resources/application_extra.properties
+$ kubectl create configmap my-extra-config --from-file=src/main/resources/application.properties
 ```
 
 3. Customize application.properties to use kuberneter-config and ConfigMap
