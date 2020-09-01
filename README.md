@@ -23,7 +23,7 @@ quarkus.container-image.password=<password>
 c. Control the build and push behaviour using below properties:
 ```
 quarkus.container-image.build=true
-quarkus.container-image.push=true --> mark it false if you do not need to push the image. Though Docker is not required for jib, Docker daemon is still going to be needed in this case.
+quarkus.container-image.push=true --> mark it false(or do not specify this property at all) if you do not need to push the image. Though Docker is not required for jib, Docker daemon is still going to be needed in this case.
 ```
 
 d. Package the build in JVM mode
@@ -33,7 +33,7 @@ d. Package the build in JVM mode
 
 e. Package the build in native mode
 ```
-./mvnw clean package -Pnative -Dquarkus.container-image.build=true -Dquarkus.container-image.push=false
+./mvnw clean package -Pnative -Dquarkus.native.container-build=true -Dquarkus.container-image.build=true -Dquarkus.container-image.push=false
 ```
 
 2. Docker
@@ -57,10 +57,63 @@ Generating Kubernetes Resources
 1. To enable the generation of Kubernetes resources, you need to register the quarkus-kubernetes extension:
 ```
 ./mvnw quarkus:add-extension -Dextensions="quarkus-kubernetes"
+
+You can genrate different resources for different platform using:
+quarkus.kubernetes.deployment-target property. The values that are allowed are: kubernetes(default), knative and openshift
 ```
 
 2. Package the build to see two new files being generated in target/kubernetes directory - named "kubernetes.json" and "kubernetes.yml", each containing object definitions of kind "Deployment" and "Service"
 ```
 ./mvnw clean package
 ```
+3. You can change the group and name of the image using below properties:
+```
+quarkus.container-image.group=com.demo.api.developers
+quarkus.application.name=developers-api
+```
+
+Enabling Liveness/Readiness probes
+By default, health probes are not generated in the output file, but if the "quarkus-smallrye-health" extension is present, the readiness and liveness probes are generated automatically 
+```
+./mvnw quarkus:add-extension -Dextensions="quarkus-smallrye-health"
+```
+
+Deploying services on Kubernetes
+1. For this we are going to use Minikube
+
+a. Setup VirtualBox - https://www.virtualbox.org/wiki/Downloads
+b. Install Kubectl - https://kubernetes.io/docs/tasks/tools/install-kubectl/
+c. Setup Minikube - https://kubernetes.io/docs/tasks/tools/install-minikube/
+d. Setup Docker - https://docs.docker.com/install/linux/ docker-ce/centos/
+
+2. Start Minikube and configure minikube as your docker environment
+```
+$ minikube start
+
+$ eval $(minikube docker-env)
+```
+
+3. If you are using Jib, then your image would have got created already while packaging, otherwise, you can build th image using Dockerfiles present in docker folder.
+```
+./mvnw package -Dquarkus.container-image.build=true
+```
+
+4. Create Kubernetes objects using "kubectl"
+```
+$ kubectl apply -f target/kubernetes/kubernetes.yml
+serviceaccount/developers-api configured
+service/developers-api created
+deployment.apps/developers-api created
+
+$ k patch svc developers-api --type='json' -p '[{"op":"replace","path":"/spec/type","value":"NodePort"}]'
+service/developers-api patched
+
+$ curl -i $(minikube service developers-api --url)/developers/hello
+HTTP/1.1 200 OK
+content-length: 10
+content-type: text/plain;charset=UTF-8
+
+Hello All!
+```
+
 
