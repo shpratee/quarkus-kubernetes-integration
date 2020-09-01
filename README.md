@@ -1,6 +1,7 @@
 # quarkus-kubernetes-integration
 Quarkus and kubernetes integration
 
+## Contanerization support
 Quarkus provides extensions for building and optionally pushing container images. At the time of writing, the following container build strategies are supported:
 
 1. Google Jib
@@ -52,7 +53,7 @@ To build and push a container image using docker
 ./mvnw quarkus:add-extensions -Dextensions="quarkus-container-image-s2i”
 ```
 
-Generating Kubernetes Resources
+##Generating Kubernetes Resources
 
 1. To enable the generation of Kubernetes resources, you need to register the quarkus-kubernetes extension:
 ```
@@ -72,13 +73,13 @@ quarkus.container-image.group=com.demo.api.developers
 quarkus.application.name=developers-api
 ```
 
-Enabling Liveness/Readiness probes
+##Enabling Liveness/Readiness probes
 By default, health probes are not generated in the output file, but if the "quarkus-smallrye-health" extension is present, the readiness and liveness probes are generated automatically 
 ```
 ./mvnw quarkus:add-extension -Dextensions="quarkus-smallrye-health"
 ```
 
-Deploying services on Kubernetes
+##Deploying services on Kubernetes
 1. For this we are going to use Minikube
 
 a. Setup VirtualBox - https://www.virtualbox.org/wiki/Downloads
@@ -105,7 +106,7 @@ serviceaccount/developers-api configured
 service/developers-api created
 deployment.apps/developers-api created
 
-$ k patch svc developers-api --type='json' -p '[{"op":"replace","path":"/spec/type","value":"NodePort"}]'
+$ kubectl patch svc developers-api --type='json' -p '[{"op":"replace","path":"/spec/type","value":"NodePort"}]'
 service/developers-api patched
 
 $ curl -i $(minikube service developers-api --url)/developers/hello
@@ -116,4 +117,53 @@ content-type: text/plain;charset=UTF-8
 Hello All!
 ```
 
+##Building and deploying Container image automatically
+You an build and deploy your application automatically by setting below property:
+```
+./mvnw clean package -Dquarkus.kubernetes.deploy=true
 
+This automatically sets quarkus.container-image.push to true
+
+You can use this for native compilation as well by adding -Pnative -Dquarkus.native.container-build=true
+```
+
+## Configuration with Kubernetes
+You can refer properties from Kubernetes ConfigMaps where in, you can override any property already mentioned in application.properties or you can declare new ones and refer them as environment variables.
+
+1. Create a ConfigMap
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: developers-api-config
+data:
+    developer.greeting.message: Kubernetes learning!
+
+$ kubectl create -f developers-configmap.yaml
+```
+
+2. Customize the application.properties to refer developer.greeting.message property from ConfigMap
+```
+quarkus.kubernetes.env-vars.developer-greeting-message.value=developer.greeting.message --> Kubernetes environment variables to be referred to override the property 
+quarkus.kubernetes.env-vars.developer-greeting-message.configmap=developers-api-config --> Load ConfigMap and refer the mentioned property in it
+```
+
+3. Package the build
+4. Apply the changes in Kubernetes Deployment and Service
+
+## Refer properties loaded from external files or properties in ConfigMap
+1. Apply "quarkus-kubernetes-config"
+```
+./mvnw quarkus:add-extension -Dextensions="quarkus-kubernetes-config"
+```
+
+2. Create Kubernetes ConfigMap using the properties file
+```
+$ kubectl create configmap my-extra-config --from-file=src/main/resources/application_extra.properties
+```
+
+3. Customize application.properties to use kuberneter-config and ConfigMap
+```
+quarkus.kubernetes-config.enabled=true
+quarkus.kubernetes-config.config-maps=my-extra-config --> There can be more ConfigMaps which can be referred here as ',' separated list.
+```
